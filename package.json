@@ -1,0 +1,20 @@
+{
+  "name": "decisionmaker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Decision Maker - Capacitor shell",
+  "scripts": {
+    "cap:init": "cap init \"Decision Maker\" com.proadstudio.decisionmaker --web-dir=.",
+    "cap:add:ios": "cap add ios",
+    "cap:copy:ios": "cap copy ios",
+    "cap:sync:ios": "cap sync ios",
+    "cap:open:ios": "cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.2.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.0",
+    "@capacitor/ios": "^6.2.0"
+  }
+}
