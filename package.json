@@ -4,7 +4,6 @@
   "private": true,
   "description": "Decision Maker - Capacitor shell",
   "scripts": {
-    "cap:init": "cap init \"Decision Maker\" com.proadstudio.decisionmaker --web-dir=.",
     "cap:add:ios": "cap add ios",
     "cap:copy:ios": "cap copy ios",
     "cap:sync:ios": "cap sync ios",
@@ -18,3 +17,4 @@
     "@capacitor/ios": "^6.2.0"
   }
 }
+

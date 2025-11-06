@@ -1,6 +1,6 @@
 {
   "appId": "com.proadstudio.decisionmaker",
   "appName": "Decision Maker",
-  "webDir": ".",
-  "bundledWebRuntime": false
+  "webDir": "www"
 }
+
