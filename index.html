@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decision Support System V15+ - Family-Specific MCDM</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div id="app">
+        <!-- Welcome Screen -->
+        <section id="welcome-screen" class="screen active">
+            <div class="container">
+                <div class="hero">
+                    <h1>Hybrid Decision Support System</h1>
+                    <p class="hero-subtitle">Prendi decisioni migliori con metodi scientifici e trasparenza totale</p>
+                    <div style="margin-top: 12px; padding: 8px 16px; background: var(--color-bg-1); border-radius: var(--radius-full); display: inline-block; font-size: var(--font-size-sm); color: var(--color-text-secondary);">
+                        ✨ Versione 15+ - 15 Famiglie | Nuova: 🚗 Acquisto Vettura
+                    </div>
+                </div>
+                
+                <div class="benefits">
+                    <div class="benefit-card">
+                        <div class="benefit-icon">🎯</div>
+                        <h3>Metodi Scientifici</h3>
+                        <p>Combina TOPSIS, AHP, Bayesian e WSM per risultati robusti</p>
+                    </div>
+                    <div class="benefit-card">
+                        <div class="benefit-icon">🔍</div>
+                        <h3>Trasparenza</h3>
+                        <p>Vedi come ogni metodo contribuisce alla decisione finale</p>
+                    </div>
+                    <div class="benefit-card">
+                        <div class="benefit-icon">⚖️</div>
+                        <h3>Riduzione Bias</h3>
+                        <p>Valutazione oggettiva basata su criteri e pesi definiti</p>
+                    </div>
+                    <div class="benefit-card">
+                        <div class="benefit-icon">📊</div>
+                        <h3>Confidence Score</h3>
+                        <p>Analisi di sensibilità per valutare la robustezza</p>
+                    </div>
+                </div>
+
+                <div class="cta-buttons">
+                    <button class="btn btn--primary btn--lg" onclick="app.goToFamilySelection()">Inizia Nuova Decisione</button>
+                    <button class="btn btn--secondary btn--lg" onclick="app.loadExample()">Prova con Esempio</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 0: Family Selection -->
+        <section id="family-screen" class="screen">
+            <div class="container">
+                <div class="step-header">
+                    <h2>Scegli la Famiglia di Problema</h2>
+                    <p>Seleziona il tipo di decisione che devi affrontare</p>
+                </div>
+
+                <div class="family-search">
+                    <input type="text" id="family-search" class="form-control" placeholder="🔍 Cerca una famiglia di problema..." oninput="app.filterFamilies()">
+                </div>
+
+                <div class="families-grid" id="families-grid"></div>
+
+                <div class="step-navigation">
+                    <button class="btn btn--secondary" onclick="app.goToWelcome()">Indietro</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 1: Problem Definition -->
+        <section id="step1-screen" class="screen">
+            <div class="container">
+                <div class="family-badge" id="family-badge-step1"></div>
+                <div class="progress-indicator">
+                    <div class="progress-step active">1</div>
+                    <div class="progress-line"></div>
+                    <div class="progress-step">2</div>
+                    <div class="progress-line"></div>
+                    <div class="progress-step">3</div>
+                    <div class="progress-line"></div>
+                    <div class="progress-step">4</div>
+                    <div class="progress-line"></div>
+                    <div class="progress-step">5</div>
+                    <div class="progress-line"></div>
+                    <div class="progress-step">6</div>
+                </div>
+
+                <div class="step-header">
+                    <h2>Step 1: Definisci il Problema</h2>
+                    <p>Descrivi la decisione che devi prendere</p>
+                </div>
+
+                <div class="card">
+                    <div class="card__body">
+                        <div class="form-group">
+                            <label class="form-label" for="problem-title">Titolo del Problema *</label>
+                            <input type="text" id="problem-title" class="form-control" placeholder="es. Scegli un Percorso di Carriera" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="time-horizon">Orizzonte Temporale (anni) *</label>
+                            <input type="number" id="time-horizon" class="form-control" min="0" step="0.5" placeholder="es. 3">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="budget-cap">Budget € (cap)</label>
+                            <input type="number" id="budget-cap" class="form-control" min="0" step="100" placeholder="Inserisci un budget massimo se rilevante">
+                        </div>
+
+                        <div id="context-questions"></div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="importance-level">Livello di Importanza: <span id="importance-value">5</span>/10</label>
+                            <input type="range" id="importance-level" class="slider" min="1" max="10" value="5" oninput="document.getElementById('importance-value').textContent = this.value">
+                            <div class="slider-labels">
+                                <span>Bassa</span>
+                                <span>Media</span>
+                                <span>Alta</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step-navigation">
+                    <button class="btn btn--secondary" onclick="app.goToWelcome()">Indietro</button>
+                    <button class="btn btn--primary" onclick="app.nextStep(1)">Avanti</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 2: Define Alternatives -->
+        <section id="step2-screen" class="screen">
+            <div class="container">
+                <div class="progress-indicator">
+                    <div class="progress-step completed">1</div>
+                    <div class="progress-line completed"></div>
+                    <div class="progress-step active">2</div>
+                    <div class="progress-line"></div>
+                    <div class="progress-step">3</div>
+                    <div class="progress-line"></div>
+                    <div class="progress-step">4</div>
+                    <div class="progress-line"></div>
+                    <div class="progress-step">5</div>
+                    <div class="progress-line"></div>
+                    <div class="progress-step">6</div>
+                </div>
+
+                <div class="step-header">
+                    <h2>Step 2: Definisci le Alternative</h2>
+                    <p>Aggiungi le opzioni tra cui scegliere (min 2, max 10)</p>
+                </div>
+
+                <div class="card">
+                    <div class="card__body">
+                        <div class="counter-badge">Alternative: <span id="alt-count">0</span>/10</div>
+
+                        <div id="alt-suggestions" class="mb-8"></div>
+                        
+                        <div id="alternatives-list"></div>
+
+                        <div class="mt-8">
+                          <button class="btn btn--secondary" onclick="app.addAlternative()" id="add-alt-btn">
+                              <span>+ Aggiungi Alternativa</span>
+                          </button>
+                          <button class="btn btn--outline" onclick="app.addSuggestedAlternatives()" id="add-suggested-btn">↳ Aggiungi Suggerite</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step-navigation">
+                    <button class="btn btn--secondary" onclick="app.previousStep(2)">Indietro</button>
+                    <button class="btn btn--primary" onclick="app.nextStep(2)">Avanti</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 3: Define Criteria -->
+        <section id="step3-screen" class="screen">
+            <div class="container">
+                <div class="progress-indicator">
+                    <div class="progress-step completed">1</div>
+                    <div class="progress-line completed"></div>
+                    <div class="progress-step completed">2</div>
+                    <div class="progress-line completed"></div>
+                    <div class="progress-step active">3</div>
+                    <div class="progress-line"></div>
+                    <div class="progress-step">4</div>
+                    <div class="progress-line"></div>
+                    <div class="progress-step">5</div>
+                    <div class="progress-line"></div>
+                    <div class="progress-step">6</div>
+                </div>
+
+                <div class="step-header">
+                    <h2>Step 3: Configura i Criteri</h2>
+                    <p>Criteri specifici per la famiglia selezionata</p>
+                </div>
+
+                <div class="card">
+                    <div class="card__body">
+                        <div style="background: var(--color-bg-3); padding: 15px; border-radius: var(--radius-base); margin-bottom: 20px;">
+                            <p style="margin: 0; color: var(--color-text);">
+                                <strong>Famiglia:</strong> <span id="family-name-step3"></span>
+                            </p>
+                            <p style="margin: 8px 0 0 0; font-size: 13px; color: var(--color-text-secondary);">
+                                ✨ <strong>Criteri specifici</strong> per questa famiglia (pre-caricati e ottimizzati)
+                            </p>
+                        </div>
+                        
+                        <div class="counter-row">
+                            <div class="counter-badge">Criteri Attivi: <span id="crit-count">0</span></div>
+                            <div class="weight-sum" id="weight-sum">Somma pesi: <span>0</span>%</div>
+                        </div>
+                        <div class="criteria-actions">
+                            <button class="btn btn--secondary" onclick="app.autoBalanceWeights()">⚖️ Bilancia Pesi Automaticamente</button>
+                            <button class="btn btn--secondary" onclick="app.resetToDefaults()">↺ Ripristina Default</button>
+                        </div>
+                        
+                        <div class="criteria-sections">
+                            <div class="criteria-section">
+                                <h4>⚙️ Criteri Specifici <span id="family-specific-label"></span></h4>
+                                <p style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-bottom: var(--space-16);">Criteri ottimizzati per questa famiglia di problema. Puoi modificare i pesi o disabilitare criteri non rilevanti.</p>
+                                <div id="extra-criteria-list"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- NUOVO: Bottone Reset Pesi -->
+                <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: space-between; flex-wrap: wrap;">
+                    <button onclick="app.resetFamilyCriteria()" class="btn btn--secondary" style="
+                        background: #FF9800;
+                        color: white;
+                        border: none;
+                    ">
+                        🔄 Ripristina Pesi Default
+                    </button>
+                    
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn--secondary" onclick="app.previousStep(3)">
+                            ← Indietro
+                        </button>
+                        <button class="btn btn--primary" onclick="app.nextStep(3)">
+                            Continua →
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 4: Performance Data -->
+        <section id="step4-screen" class="screen">
+            <div class="container">
+                <div class="progress-indicator">
+                    <div class="progress-step completed">1</div>
+                    <div class="progress-line completed"></div>
+                    <div class="progress-step completed">2</div>
+                    <div class="progress-line completed"></div>
+                    <div class="progress-step completed">3</div>
+                    <div class="progress-line completed"></div>
+                    <div class="progress-step active">4</div>
+                    <div class="progress-line"></div>
+                    <div class="progress-step">5</div>
+                    <div class="progress-line"></div>
+                    <div class="progress-step">6</div>
+                </div>
+
+                <div class="step-header">
+                    <h2>Step 4: Valuta le Performance</h2>
+                    <p>Assegna un punteggio da 1 a 10 per ogni combinazione alternativa-criterio</p>
+                </div>
+
+                <div class="card">
+                    <div class="card__body">
+                        <div class="matrix-container">
+                            <div id="performance-matrix"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- NEW: EVALUATION SCALES LEGEND -->
+                <div style="margin-top: 30px; padding: 20px; background: var(--color-surface); border-radius: var(--radius-lg); border: 1px solid var(--color-card-border); box-shadow: var(--shadow-sm);">
+                    <h3 style="margin: 0 0 15px 0; color: var(--color-text); font-size: var(--font-size-xl);">📋 Scale di Valutazione</h3>
+                    <p style="margin: 0 0 15px 0; color: var(--color-text-secondary); font-size: var(--font-size-sm);">
+                        Consulta queste scale quando inserisci i punteggi da 1 a 10
+                    </p>
+                    
+                    <!-- TABS for switching between BENEFIT and COST -->
+                    <div style="display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 2px solid var(--color-border);">
+                        <button id="benefitScaleTab" onclick="showBenefitScale()" style="
+                            padding: 10px 15px;
+                            background: var(--color-primary);
+                            color: var(--color-btn-primary-text);
+                            border: none;
+                            border-radius: var(--radius-base) var(--radius-base) 0 0;
+                            cursor: pointer;
+                            font-weight: var(--font-weight-semibold);
+                            font-size: var(--font-size-base);
+                            font-family: var(--font-family-base);
+                            transition: all var(--duration-fast);
+                        ">📈 BENEFICI</button>
+                        
+                        <button id="costScaleTab" onclick="showCostScale()" style="
+                            padding: 10px 15px;
+                            background: var(--color-secondary);
+                            color: var(--color-text);
+                            border: none;
+                            border-radius: var(--radius-base) var(--radius-base) 0 0;
+                            cursor: pointer;
+                            font-weight: var(--font-weight-semibold);
+                            font-size: var(--font-size-base);
+                            font-family: var(--font-family-base);
+                            transition: all var(--duration-fast);
+                        ">💰 COSTI</button>
+                    </div>
+                    
+                    <!-- BENEFIT SCALE -->
+                    <div id="benefitScaleContent" style="display: block;">
+                        <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
+                            <thead>
+                                <tr style="background: var(--color-bg-3);">
+                                    <th style="padding: 10px; text-align: left; border: 1px solid var(--color-border); font-weight: var(--font-weight-semibold); width: 50px;">Score</th>
+                                    <th style="padding: 10px; text-align: left; border: 1px solid var(--color-border); font-weight: var(--font-weight-semibold);">Descrizione</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr style="background: var(--color-bg-4);">
+                                    <td style="padding: 10px; border: 1px solid var(--color-border); font-weight: var(--font-weight-semibold);">1</td>
+                                    <td style="padding: 10px; border: 1px solid var(--color-border);">
+                                        <strong>Pessimo</strong> — Impatto negativo o peggiora i KPI
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 10px; border: 1px solid var(--color-border); font-weight: var(--font-weight-semibold);">2</td>
+                                    <td style="padding: 10px; border: 1px solid var(--color-border);">
+                                        <strong>Molto scarso</strong> — Benefici minimi, rischi elevati
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 10px; border: 1px solid var(--color-border); font-weight: var(--font-weight-semibold);">3</td>
+                                    <td style="padding: 10px; border: 1px solid var(--color-border);">
+                                        <strong>Scarso</strong> — Piccoli miglioramenti, non giustifica l'investimento
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 10px; border: 1px solid var(--color-border); font-weight: var(--font-weight-semibold);">4</td>
+                                    <td style="padding: 10px; border: 1px solid var(--color-border);">
+                                        <strong>Debole</strong> — Benefici marginali/incerti
+                                    </td>
+                                </tr>
+                                <tr style="background: var(--color-bg-2);">
+                                    <td style="padding: 10px; border: 1px solid var(--color-border); font-weight: var(--font-weight-semibold);">5</td>
+                                    <td style="padding: 10px; border: 1px solid var(--color-border);">
+                                        <strong>Sufficiente</strong> — Beneficio percepibile ma modesto
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 10px; border: 1px solid var(--color-border); font-weight: var(--font-weight-semibold);">6</td>
+                                    <td style="padding: 10px; border: 1px solid var(--color-border);">
+                                        <strong>Buono</strong> — Benefici chiari in alcune aree
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 10px; border: 1px solid var(--color-border); font-weight: var(--font-weight-semibold);">7</td>
+                                    <td style="padding: 10px; border: 1px solid var(--color-border);">
+                                        <strong>Molto buono</strong> — Miglioramenti significativi
+                                    </td>
+                                </tr>
+                                <tr style="background: var(--color-bg-3);">
+                                    <td style="padding: 10px; border: 1px solid var(--color-border); font-weight: var(--font-weight-semibold);">8</td>
+                                    <td style="padding: 10px; border: 1px solid var(--color-border);">
+                                        <strong>Ottimo</strong> — Forte impatto e vantaggio competitivo
+                                    </td>
+                                </tr>
+                                <tr style="background: var(--color-bg-3);">
+                                    <td style="padding: 10px; border: 1px solid var(--color-border); font-weight: var(--font-weight-semibold);">9</td>
+                                    <td style="padding: 10px; border: 1px solid var(--color-border);">
+                                        <strong>Eccellente</strong> — Benefici estesi, misurabili e stabili
+                                    </td>
+                                </tr>
+                                <tr style="background: var(--color-success); background: rgba(var(--color-success-rgb), 0.2);">
+                                    <td style="padding: 10px; border: 1px solid var(--color-border); font-weight: var(--font-weight-bold); color: var(--color-success);">10</td>
+                                    <td style="padding: 10px; border: 1px solid var(--color-border); color: var(--color-success); font-weight: var(--font-weight-semibold);">
+                                        <strong>Super</strong> — Trasformativo
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- COST SCALE (Hidden by default) -->
+                    <div id="costScaleContent" style="display: none;">
+                        <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
+                            <thead>
+                                <tr style="background: var(--color-bg-4);">
+                                    <th style="padding: 10px; text-align: left; border: 1px solid var(--color-border); font-weight: var(--font-weight-semibold); width: 50px;">Score</th>
+                                    <th style="padding: 10px; text-align: left; border: 1px solid var(--color-border); font-weight: var(--font-weight-semibold);">Descrizione</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr style="background: var(--color-bg-3);">
+                                    <td style="padding: 10px; border: 1px solid var(--color-border); font-weight: var(--font-weight-semibold); color: var(--color-success);">1</td>
+                                    <td style="padding: 10px; border: 1px solid var(--color-border);">
+                                        <strong>Gratis</strong> — Impatto nullo sul budget; 0–1 operatore
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 10px; border: 1px solid var(--color-border); font-weight: var(--font-weight-semibold);">2</td>
+                                    <td style="padding: 10px; border: 1px solid var(--color-border);">
+                                        <strong>Molto Economico</strong> — Costo contenuto; 2 operatori
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 10px; border: 1px solid var(--color-border); font-weight: var(--font-weight-semibold);">3</td>
+                                    <td style="padding: 10px; border: 1px solid var(--color-border);">
+                                        <strong>Basso</strong> — Sotto la media; 3 operatori
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 10px; border: 1px solid var(--color-border); font-weight: var(--font-weight-semibold);">4</td>
+                                    <td style="padding: 10px; border: 1px solid var(--color-border);">
+                                        <strong>Moderato-basso</strong> — Accettabile; 4 operatori
+                                    </td>
+                                </tr>
+                                <tr style="background: var(--color-bg-2);">
+                                    <td style="padding: 10px; border: 1px solid var(--color-border); font-weight: var(--font-weight-semibold);">5</td>
+                                    <td style="padding: 10px; border: 1px solid var(--color-border);">
+                                        <strong>Medio</strong> — Nella media; 5 operatori
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 10px; border: 1px solid var(--color-border); font-weight: var(--font-weight-semibold);">6</td>
+                                    <td style="padding: 10px; border: 1px solid var(--color-border);">
+                                        <strong>Medio-alto</strong> — Superiore alla media; 6 operatori
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 10px; border: 1px solid var(--color-border); font-weight: var(--font-weight-semibold);">7</td>
+                                    <td style="padding: 10px; border: 1px solid var(--color-border);">
+                                        <strong>Alto</strong> — Impatto significativo; 7 operatori
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 10px; border: 1px solid var(--color-border); font-weight: var(--font-weight-semibold);">8</td>
+                                    <td style="padding: 10px; border: 1px solid var(--color-border);">
+                                        <strong>Molto alto</strong> — Forte impatto; 8 operatori
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 10px; border: 1px solid var(--color-border); font-weight: var(--font-weight-semibold);">9</td>
+                                    <td style="padding: 10px; border: 1px solid var(--color-border);">
+                                        <strong>Carissimo</strong> — Quasi proibitivo; 9 operatori
+                                    </td>
+                                </tr>
+                                <tr style="background: var(--color-bg-4);">
+                                    <td style="padding: 10px; border: 1px solid var(--color-border); font-weight: var(--font-weight-bold); color: var(--color-error);">10</td>
+                                    <td style="padding: 10px; border: 1px solid var(--color-border); color: var(--color-error); font-weight: var(--font-weight-semibold);">
+                                        <strong>Estremo, Insostenibile</strong> — Oltre 10 operatori
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <p style="margin: 15px 0 0 0; padding-top: 15px; border-top: 1px solid var(--color-border); font-size: var(--font-size-xs); color: var(--color-text-secondary);">
+                        💡 <strong>Suggerimento:</strong> Usa i punteggi centrali (4-6) per alternative equilibrate. 
+                        Usa 1-3 solo se veramente scarsi, e 8-10 solo se veramente eccellenti.
+                    </p>
+                </div>
+
+                <div class="step-navigation">
+                    <button class="btn btn--secondary" onclick="app.previousStep(4)">Indietro</button>
+                    <button class="btn btn--primary" onclick="app.nextStep(4)">Avanti</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 5: Preferences -->
+        <section id="step5-screen" class="screen">
+            <div class="container">
+                <div class="progress-indicator">
+                    <div class="progress-step completed">1</div>
+                    <div class="progress-line completed"></div>
+                    <div class="progress-step completed">2</div>
+                    <div class="progress-line completed"></div>
+                    <div class="progress-step completed">3</div>
+                    <div class="progress-line completed"></div>
+                    <div class="progress-step completed">4</div>
+                    <div class="progress-line completed"></div>
+                    <div class="progress-step active">5</div>
+                    <div class="progress-line"></div>
+                    <div class="progress-step">6</div>
+                </div>
+
+                <div class="step-header">
+                    <h2>Step 5: Preferenze e Vincoli</h2>
+                    <p>Configura le tue preferenze per l'analisi</p>
+                </div>
+
+                <div class="card">
+                    <div class="card__body">
+                        <div class="form-group">
+                            <label class="form-label" for="risk-tolerance">Tolleranza al Rischio: <span id="risk-value">5</span>/10</label>
+                            <input type="range" id="risk-tolerance" class="slider" min="1" max="10" value="5" oninput="document.getElementById('risk-value').textContent = this.value">
+                            <div class="slider-labels">
+                                <span>Avverso al rischio</span>
+                                <span>Neutrale</span>
+                                <span>Propenso al rischio</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="confidence-level">Livello di Confidenza</label>
+                            <select id="confidence-level" class="form-control">
+                                <option value="Low">Basso (analisi veloce)</option>
+                                <option value="Medium" selected>Medio (bilanciato)</option>
+                                <option value="High">Alto (analisi approfondita)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="constraints">Vincoli Aggiuntivi (opzionale)</label>
+                            <textarea id="constraints" class="form-control" rows="4" placeholder="Aggiungi eventuali vincoli o note aggiuntive..."></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="data-accuracy">
+                                <span>Confermo l'accuratezza dei dati inseriti</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step-navigation">
+                    <button class="btn btn--secondary" onclick="app.previousStep(5)">Indietro</button>
+                    <button class="btn btn--primary" onclick="app.calculateResults()">Calcola Risultati</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Loading Screen -->
+        <section id="loading-screen" class="screen">
+            <div class="container">
+                <div class="loading-content">
+                    <div class="spinner"></div>
+                    <h2>Calcolo in corso...</h2>
+                    <p>Applicazione dei metodi MCDM e analisi di sensibilità</p>
+                    <div class="loading-progress">
+                        <div class="loading-progress-bar" id="loading-progress-bar" style="width: 0%;"></div>
+                    </div>
+                    <div style="margin-top: 16px; font-size: 12px; color: var(--color-text-secondary);">
+                        ℹ️ Timeout massimo: 5 secondi
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Results Screen -->
+        <section id="results-screen" class="screen">
+            <div class="container">
+                <div class="step-header">
+                    <h2>Risultati dell'Analisi</h2>
+                    <p id="problem-title-results"></p>
+                </div>
+
+                <!-- Summary Card -->
+                <div class="card summary-card">
+                    <div class="card__body">
+                        <h3>🏆 Raccomandazione Principale</h3>
+                        <div class="top-recommendation">
+                            <div class="recommendation-name" id="top-recommendation"></div>
+                            <div class="recommendation-metrics">
+                                <div class="metric">
+                                    <div class="metric-label">Score Finale</div>
+                                    <div class="metric-value" id="top-score"></div>
+                                </div>
+                                <div class="metric">
+                                    <div class="metric-label">Confidenza</div>
+                                    <div class="metric-value" id="top-confidence"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="recommendation-explanation" id="recommendation-explanation"></p>
+                    </div>
+                </div>
+
+                <!-- Rankings Table - 9 COLUMNS (5 Methods) -->
+                <div class="card">
+                    <div class="card__body">
+                        <h3 style="color: #000000; font-weight: 600;">📊 Classifica Completa</h3>
+                        <div class="table-container">
+                            <table class="results-table" style="width: 100%; border-collapse: collapse;">
+                                <thead>
+                                    <tr style="background: #e3f2fd; color: #000000;">
+                                        <th style="padding: 10px; text-align: left;">Rank</th>
+                                        <th style="padding: 10px; text-align: left;">Alternativa</th>
+                                        <th style="padding: 10px; text-align: center;">WSM</th>
+                                        <th style="padding: 10px; text-align: center;">TOPSIS</th>
+                                        <th style="padding: 10px; text-align: center;">VIKOR</th>
+                                        <th style="padding: 10px; text-align: center;">AHP</th>
+                                        <th style="padding: 10px; text-align: center;">BDT</th>
+                                        <th style="padding: 10px; text-align: center;">Score Finale</th>
+                                        <th style="padding: 10px; text-align: center;">Confidenza</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="resultsTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Graphic Method Rankings Table - VERSION 8.5 -->
+                <div id="methodRankingSection" style="margin: 30px 0; padding: 20px; background: var(--color-surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); border: 1px solid var(--color-card-border);">
+                  
+                  <h3 style="margin: 0 0 5px 0; color: #000000; font-weight: 600;">🎯 Ranking per Metodo - Confronto Visivo</h3>
+                  <p style="margin: 0 0 20px 0; color: var(--color-text-secondary); font-size: 13px;">
+                    Vedi come ogni algoritmo MCDM ranking le tue alternative
+                  </p>
+                  
+                  <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; background: var(--color-surface);">
+                      
+                      <!-- HEADER ROW -->
+                      <thead>
+                        <tr style="background: #e3f2fd; color: #000000;">
+                          <th style="padding: 14px; text-align: left; font-weight: 600; border: none;">Posizione</th>
+                          <th style="padding: 14px; text-align: center; font-weight: 600; border: none;">📊 WSM</th>
+                          <th style="padding: 14px; text-align: center; font-weight: 600; border: none;">📈 TOPSIS</th>
+                          <th style="padding: 14px; text-align: center; font-weight: 600; border: none;">⚖️ VIKOR</th>
+                          <th style="padding: 14px; text-align: center; font-weight: 600; border: none;">🔗 AHP</th>
+                          <th style="padding: 14px; text-align: center; font-weight: 600; border: none;">💰 BDT</th>
+                          <th style="padding: 14px; text-align: center; font-weight: 600; border: none;">🤝 Consenso</th>
+                        </tr>
+                      </thead>
+                      
+                      <!-- DATA ROWS -->
+                      <tbody id="methodRankingTableBody">
+                        <!-- Populated by JavaScript -->
+                      </tbody>
+                      
+                    </table>
+                  </div>
+                  
+                  <!-- LEGEND -->
+                  <div style="margin-top: 15px; padding: 12px; background: var(--color-bg-1); border-radius: var(--radius-sm); font-size: 12px; color: var(--color-text-secondary);">
+                    <strong>Legenda:</strong> 
+                    Ogni riga mostra il ranking di una posizione. 
+                    <strong>Consenso</strong> indica quanti metodi concordano su quella posizione.
+                    <strong>✅ = Tutti concordano</strong> | <strong>⚠️ = Accordo parziale</strong> | <strong>❌ = Disaccordo</strong>
+                  </div>
+                  
+                </div>
+
+                <!-- Performance Profile - VISUAL BARS -->
+                <div class="card">
+                    <div class="card__body">
+                        <h3 style="color: #000000; font-weight: 600;">🎯 Profilo Performance</h3>
+                        <div id="performanceProfile" style="margin: 20px 0;">
+                            <div style="display: flex; flex-direction: column; gap: 20px;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pareto Frontier - SIMPLE & CLEAR -->
+                <div class="card">
+                    <div class="card__body">
+                        <div id="paretoSection" style="margin: 20px 0;">
+                            <h3 style="color: #000000; font-weight: 600;">🎯 Frontiera Pareto (Soluzioni Non Dominate)</h3>
+                            <p style="color: #666; margin: 10px 0; font-size: 14px;">
+                                Le seguenti alternative NON sono "sconfitte" - nessuna è peggiore su TUTTI i criteri rispetto alle altre.
+                            </p>
+                            <div id="paretoList"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Method Agreement - 5 METHODS -->
+                <div class="card">
+                    <div class="card__body">
+                        <h3 style="color: #000000; font-weight: 600;">🤝 Analisi Accordo Metodi</h3>
+                        <div id="methodAgreementContent"></div>
+                    </div>
+                </div>
+
+                <!-- Sensitivity Analysis -->
+                <div class="card">
+                    <div class="card__body">
+                        <h3 style="color: #000000; font-weight: 600;">📊 Analisi di Sensibilità</h3>
+                        <div id="sensitivity-analysis"></div>
+                        <div id="sensitivity-heatmap" class="mt-8"></div>
+                    </div>
+                </div>
+
+                <!-- Scenarios - THREE BOXES -->
+                <div class="card">
+                    <div class="card__body">
+                        <h3 style="color: #000000; font-weight: 600;">📈 Analisi Scenari - Stabilità Risultati</h3>
+                        <p style="color: var(--color-text-secondary); margin-bottom: 20px; font-size: 14px;">
+                            Cosa succede se i punteggi cambiano? Verifichiamo la robustezza della raccomandazione.
+                        </p>
+                        <div id="scenarios" style="margin: 30px 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
+                            <div id="pessimisticScenario" style="background: #ffebee; padding: 20px; border-radius: 8px; border-left: 5px solid #f44336;">
+                                <h4 style="margin-bottom: 15px;">📉 Pessimistico (Severo)</h4>
+                                <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Se sei più critico (-1 punto):</p>
+                                <div id="pessimisticResults"></div>
+                            </div>
+                            
+                            <div id="realisticScenario" style="background: #e8f5e9; padding: 20px; border-radius: 8px; border-left: 5px solid #4caf50;">
+                                <h4 style="margin-bottom: 15px;">📊 Realistico (Attuale)</h4>
+                                <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Con i tuoi pesi attuali:</p>
+                                <div id="realisticResults"></div>
+                            </div>
+                            
+                            <div id="optimisticScenario" style="background: #e3f2fd; padding: 20px; border-radius: 8px; border-left: 5px solid #2196f3;">
+                                <h4 style="margin-bottom: 15px;">📈 Ottimistico (Generoso)</h4>
+                                <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Se sei più generoso (+1 punto):</p>
+                                <div id="optimisticResults"></div>
+                            </div>
+                        </div>
+                        <div id="scenarioInterpretation" style="margin-top: 20px; padding: 15px; background: var(--color-bg-1); border-radius: 8px;"></div>
+                    </div>
+                </div>
+
+                <!-- Family-Specific Insights -->
+                <div class="card">
+                    <div class="card__body">
+                        <h3 style="color: #000000; font-weight: 600;">💡 Insight Specifici per Famiglia</h3>
+                        <div class="family-metrics" id="family-metrics"></div>
+                    </div>
+                </div>
+
+                <!-- Detailed Explanation -->
+                <div class="card">
+                    <div class="card__body">
+                        <h3 style="color: #000000; font-weight: 600;">📝 Spiegazione Dettagliata</h3>
+                        <div id="detailed-explanation"></div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <button class="btn btn--primary" onclick="app.exportResultsJSON()">Esporta JSON</button>
+                    <button class="btn btn--primary" onclick="app.exportResultsCSV()">Esporta CSV</button>
+                    <button class="btn btn--secondary" onclick="app.exportPDF()">Esporta PDF</button>
+                    <button class="btn btn--secondary" onclick="app.copyShareLink()">Condividi Link</button>
+                    <button class="btn btn--secondary" onclick="app.modifyParameters()">Modifica Parametri</button>
+                    <button class="btn btn--secondary" onclick="app.goToFamilySelection()">Nuova Decisione</button>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
