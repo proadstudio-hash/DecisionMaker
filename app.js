@@ -1144,7 +1144,7 @@ const app = {
   // Step 5: Calculate Results - VERSION 8.0 CORRECTED ALGORITHMS
   calculateResults() {
     try {
-      console.log("=== V15+ CALCULATION STARTED (15 Families, Family-Specific Criteria, 5 MCDM Methods) ===");
+      console.log("=== V15.1 CALCULATION STARTED (15 Families, Score Bug Fixed, 5 MCDM Methods) ===");
       console.log("Alternatives:", state.alternatives.length);
       console.log("Criteria:", state.criteria.filter(c => c.isIncluded).length);
       
@@ -1342,17 +1342,10 @@ const app = {
         ensembleScores.push(score);
       }
       
-      // SMOOTH SCALING TO 0-100 (using square root to reduce amplification)
-      const maxScore = Math.max(...ensembleScores);
-      const minScore = Math.min(...ensembleScores);
-      const range = maxScore - minScore;
-      
-      const finalScores = ensembleScores.map(s => {
-        if (range === 0) return 50;
-        const normalized01 = (s - minScore) / range; // 0-1
-        const smoothed = Math.sqrt(normalized01); // Square root smoothing
-        return smoothed * 100; // 0-100
-      });
+      // V15+ FIX: Direct scaling to 0-100 without re-normalization
+      // This preserves the TRUE ensemble value (mean of 5 algorithms)
+      // NO re-scaling to force top score to 100%
+      const finalScores = ensembleScores.map(s => s * 100);
       
       // CONSERVATIVE PROBABILITIES (direct normalization, not softmax)
       const sumScores = finalScores.reduce((a, b) => a + b, 0);
@@ -1426,12 +1419,13 @@ const app = {
       state.step = 7;
       
       console.log("✓ State.step set to:", state.step);
-      console.log("=== V15+ CALCULATION COMPLETE - Family-Specific Criteria ===");
+      console.log("=== V15.1 CALCULATION COMPLETE - Score Finale Bug Fixed ===");
       console.log("Top alternative:", rankings[0].alternative, "Score:", rankings[0].score);
       console.log("Score difference (1st - 2nd):", rankings.length > 1 ? (rankings[0].score - rankings[1].score).toFixed(2) : 'N/A');
       console.log("Variance:", scoreVariance.toFixed(4));
       console.log("Family:", state.selectedFamily ? state.selectedFamily.nome : 'N/A');
       console.log("Criteria count:", enabledCriteria.length, "(all family-specific)");
+      console.log("V15.1 FIX: Score Finale shows REAL ensemble value (not normalized to 100%)");
       
       // DISPLAY RESULTS
       console.log("Displaying results...");
@@ -2739,8 +2733,9 @@ const app = {
       html += `<p>"${top.alternative}" supera "${second.alternative}" di ${scoreDiff.toFixed(2)} punti. Questa differenza è ${scoreDiff > 10 ? 'significativa' : 'moderata'}, indicando ${scoreDiff > 10 ? 'una chiara preferenza' : 'che entrambe le opzioni meritano considerazione'}.</p>`;
     }
     
-    html += '<h4>Metodologia V15+ con 5 Algoritmi MCDM</h4>';
-    html += '<p><strong>✨ Novità V15+:</strong> <strong>15 famiglie di problema</strong> con criteri <strong>famiglia-specifici</strong> ottimizzati (incluso 🚗 Acquisto Nuova Vettura). Nessun criterio universale generico.</p>';
+    html += '<h4>Metodologia V15.1 con 5 Algoritmi MCDM</h4>';
+    html += '<p><strong>✨ Novità V15.1:</strong> <strong>BUG FIX CRITICO</strong> - Score Finale ora mostra il valore ensemble REALE (non più normalizzato al 100%). Esempio: se l\'ensemble è 80.38, viene mostrato 80.38 (non 100.0).</p>';
+    html += '<p><strong>✨ V15+:</strong> <strong>15 famiglie di problema</strong> con criteri <strong>famiglia-specifici</strong> ottimizzati (incluso 🚗 Acquisto Nuova Vettura). Nessun criterio universale generico.</p>';
     html += '<p>Questa analisi combina 5 metodi MCDM differenti con inversione corretta dei costi:';
     html += '<ul>';
     html += '<li><strong>WSM</strong> (20%): Weighted Sum Method - somma ponderata diretta</li>';
@@ -2749,8 +2744,10 @@ const app = {
     html += '<li><strong>AHP</strong> (20%): Analytic Hierarchy Process - media geometrica</li>';
     html += '<li><strong>BDT</strong> (20%): Benefit-Cost Decision Tree - valutazione aggregata</li>';
     html += '</ul>';
-    html += '<strong>✅ Caratteristiche V15+:</strong>';
+    html += '<strong>✅ Caratteristiche V15.1:</strong>';
     html += '<ul style="font-size: 12px; color: var(--color-text-secondary);">';
+    html += '<li>🐛 V15.1 FIX: Score Finale = valore ensemble REALE (media dei 5 algoritmi)</li>';
+    html += '<li>🐛 V15.1 FIX: Rimossa ri-normalizzazione che forzava il top al 100%</li>';
     html += '<li>✓ 15 famiglie di problema (incluso 🚗 Acquisto Nuova Vettura)</li>';
     html += '<li>✓ Solo criteri famiglia-specifici (es. ${state.selectedFamily ? state.selectedFamily.nome : "famiglia selezionata"})</li>';
     html += '<li>✓ Criteri COSTO: invertiti (10-valore) per normalizzazione corretta</li>';
