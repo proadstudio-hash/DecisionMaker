@@ -564,12 +564,32 @@ const app = {
       // Validate step 4
       this.collectPerformanceMatrix();
       
-      // Check all cells are filled
+      const activeCriteria = state.criteria.filter(c => c.isIncluded);
+      
+      // Check all cells are filled and valid
       for (let i = 0; i < state.performanceMatrix.length; i++) {
         for (let j = 0; j < state.performanceMatrix[i].length; j++) {
-          if (state.performanceMatrix[i][j] < 1 || state.performanceMatrix[i][j] > 10) {
-            alert('Tutti i valori devono essere compresi tra 1 e 10');
+          const value = state.performanceMatrix[i][j];
+          const crit = activeCriteria[j];
+          
+          if (value === null || value === undefined || isNaN(value)) {
+            alert(`Valore mancante per "${state.alternatives[i].name}" × "${crit.name}"`);
             return;
+          }
+          
+          // Different validation for numeric vs standard criteria
+          if (crit.isNumeric) {
+            // Numeric criteria: must be positive
+            if (value < 0) {
+              alert(`Per criteri numerici, il valore deve essere positivo o zero.\nProblema: "${state.alternatives[i].name}" × "${crit.name}"`);
+              return;
+            }
+          } else {
+            // Standard criteria: must be 1-10
+            if (value < 1 || value > 10) {
+              alert(`Per criteri standard, il valore deve essere tra 1 e 10.\nProblema: "${state.alternatives[i].name}" × "${crit.name}"`);
+              return;
+            }
           }
         }
       }
@@ -751,11 +771,13 @@ const app = {
         const typeIcon = crit.type === 'benefit' ? '↑' : '↓';
         const lockIcon = crit.locked ? '🔒' : '🔓';
         const lockClass = crit.locked ? 'locked' : '';
+        const numericBadge = crit.isNumeric ? '<span style="font-size: 9px; background: #E8D4F1; color: #6B21A8; padding: 2px 6px; border-radius: 3px; margin-left: 4px;">🔢 NUM</span>' : '';
+        const numericInfo = crit.isNumeric ? ` (Ott:${crit.optimalValue}, Max:${crit.maxValue})` : '';
         
         customHtml += `
           <div class="crit-item-enhanced" style="background: var(--color-bg-5);">
             <input type="checkbox" class="crit-toggle" ${crit.isIncluded ? 'checked' : ''} data-crit-id="${crit.id}" onchange="app.toggleCriterion('${crit.id}')">
-            <span class="crit-name-display">✏️ ${crit.name}</span>
+            <span class="crit-name-display">✏️ ${crit.name}${numericBadge}<span style="font-size: 10px; color: var(--color-text-secondary);">${numericInfo}</span></span>
             <span class="crit-type-badge ${typeClass}">${typeIcon} ${crit.type === 'benefit' ? 'Beneficio' : 'Costo'}</span>
             <input type="number" class="crit-weight-input ${lockClass}" value="${crit.weight}" min="0" max="100" step="0.5" data-crit-id="${crit.id}" oninput="app.onWeightEdit('${crit.id}')" ${!crit.isIncluded ? 'disabled' : ''}>
             <button class="btn-lock" onclick="app.toggleLock('${crit.id}')" ${!crit.isIncluded ? 'disabled' : ''}>${lockIcon}</button>
@@ -783,7 +805,7 @@ const app = {
     modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;';
     
     modal.innerHTML = `
-      <div style="background: var(--color-surface); padding: 32px; border-radius: var(--radius-lg); max-width: 500px; width: 90%;">
+      <div style="background: var(--color-surface); padding: 32px; border-radius: var(--radius-lg); max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto;">
         <h3 style="margin-bottom: 24px;">Aggiungi Criterio Personalizzato</h3>
         
         <div class="form-group">
@@ -817,6 +839,48 @@ const app = {
           <input type="text" id="custom-crit-unit" class="form-control" placeholder="es. €, %, ore, giorni..." maxlength="20">
         </div>
         
+        <div style="margin-top: 15px; padding: 15px; background: #f0f8ff; border-radius: 5px;">
+          <label class="checkbox-label" style="display: flex; align-items: flex-start; gap: 8px;">
+            <input type="checkbox" id="custom-crit-is-numeric" onchange="app.toggleNumericOptions()">
+            <span>✅ È un criterio numerico? (inserisci valori reali invece di score 1-10)</span>
+          </label>
+          
+          <div id="numeric-options" style="display: none; margin-top: 15px;">
+            <div class="form-group">
+              <label class="form-label">Unità di Misura</label>
+              <select id="custom-crit-numeric-unit" class="form-control">
+                <option value="€" selected>💰 € (Valuta/Costo)</option>
+                <option value="€_saving">💵 € Saving (Beneficio)</option>
+                <option value="days">📅 Giorni</option>
+                <option value="hours">⏱️ Ore</option>
+                <option value="minutes">🕐 Minuti</option>
+                <option value="%">% (Percentuale)</option>
+                <option value="custom">🔢 Personalizzato</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Valore OTTIMO (Score = 6/10)</label>
+              <input type="number" id="custom-crit-optimal" class="form-control" step="any" placeholder="es. 5000">
+              <small style="font-size: 11px; color: #666;">Il valore che rappresenta il miglior compromesso</small>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Valore MAX (Score = 1/10)</label>
+              <input type="number" id="custom-crit-max" class="form-control" step="any" placeholder="es. 10000">
+              <small style="font-size: 11px; color: #666;">Per COSTI: il valore massimo accettabile. Per BENEFICI: il target ideale</small>
+            </div>
+
+            <p style="font-size: 12px; color: #666; margin-top: 10px; padding: 10px; background: #e3f2fd; border-radius: 4px;">
+              💡 <strong>Come funziona:</strong><br>
+              • Valore = OTTIMO → Score 6/10<br>
+              • Valore = MAX o oltre → Score 1/10 (per costi) o 10/10 (per benefici)<br>
+              • Valori intermedi vengono interpolati proporzionalmente<br>
+              • Il sistema convertirà automaticamente in Step 4
+            </p>
+          </div>
+        </div>
+        
         <div style="display: flex; gap: 12px; margin-top: 24px;">
           <button class="btn btn--primary" onclick="app.addCustomCriterion()" style="flex: 1;">Aggiungi</button>
           <button class="btn btn--secondary" onclick="app.closeCustomCriterionModal()" style="flex: 1;">Annulla</button>
@@ -828,11 +892,20 @@ const app = {
     document.getElementById('custom-crit-name').focus();
   },
 
+  toggleNumericOptions() {
+    const isNumeric = document.getElementById('custom-crit-is-numeric').checked;
+    const numericOptions = document.getElementById('numeric-options');
+    if (numericOptions) {
+      numericOptions.style.display = isNumeric ? 'block' : 'none';
+    }
+  },
+
   addCustomCriterion() {
     const name = document.getElementById('custom-crit-name').value.trim();
     const type = document.querySelector('input[name="custom-type"]:checked').value;
     const weight = parseFloat(document.getElementById('custom-crit-weight').value);
     const unit = document.getElementById('custom-crit-unit').value.trim();
+    const isNumeric = document.getElementById('custom-crit-is-numeric').checked;
     
     // Validation
     if (!name || name.length < 5 || name.length > 100) {
@@ -854,18 +927,48 @@ const app = {
       return;
     }
     
+    // Validate numeric fields if numeric
+    let optimalValue = null;
+    let maxValue = null;
+    let numericUnit = null;
+    
+    if (isNumeric) {
+      optimalValue = parseFloat(document.getElementById('custom-crit-optimal').value);
+      maxValue = parseFloat(document.getElementById('custom-crit-max').value);
+      numericUnit = document.getElementById('custom-crit-numeric-unit').value;
+      
+      if (isNaN(optimalValue) || isNaN(maxValue)) {
+        alert('Per criteri numerici, devi inserire sia il valore OTTIMO che MAX');
+        return;
+      }
+      
+      if (optimalValue <= 0 || maxValue <= 0) {
+        alert('I valori devono essere positivi');
+        return;
+      }
+      
+      if (type === 'cost' && optimalValue >= maxValue) {
+        alert('Per COSTI: il valore OTTIMO deve essere inferiore al valore MAX');
+        return;
+      }
+    }
+    
     // Add custom criterion
     const newCrit = {
       id: 'CUSTOM_' + Date.now(),
       name: name,
       type: type,
       weight: weight,
-      unit: unit,
+      unit: isNumeric ? numericUnit : unit,
       isCore: false,
       isIncluded: true,
       locked: false,
       source: 'custom',
-      description: 'Criterio personalizzato'
+      description: 'Criterio personalizzato',
+      isNumeric: isNumeric,
+      numericUnit: numericUnit,
+      optimalValue: optimalValue,
+      maxValue: maxValue
     };
     
     state.criteria.push(newCrit);
@@ -1090,7 +1193,7 @@ const app = {
     if (state.performanceMatrix.length !== state.alternatives.length || 
         (state.performanceMatrix[0] && state.performanceMatrix[0].length !== activeCriteria.length)) {
       state.performanceMatrix = state.alternatives.map(() => 
-        activeCriteria.map(() => 5)
+        activeCriteria.map((crit) => crit.isNumeric ? (crit.optimalValue || 0) : 5)
       );
     }
     
@@ -1106,8 +1209,9 @@ const app = {
     activeCriteria.forEach(crit => {
       const typeIcon = crit.type === 'benefit' ? '↑' : '↓';
       const typeClass = crit.type === 'benefit' ? 'benefit' : 'cost';
+      const numericBadge = crit.isNumeric ? '<br><span style="font-size: 9px; background: #E8D4F1; color: #6B21A8; padding: 2px 6px; border-radius: 3px;">🔢 NUMERICO</span>' : '';
       html += `<th>
-        <span class="crit-type-badge ${typeClass}" style="font-size: 10px; padding: 2px 6px;">${typeIcon}</span><br>
+        <span class="crit-type-badge ${typeClass}" style="font-size: 10px; padding: 2px 6px;">${typeIcon}</span>${numericBadge}<br>
         ${crit.name}<br>
         <span class="criterion-weight">${crit.weight.toFixed(1)}% ${crit.unit ? '(' + crit.unit + ')' : ''}</span>
       </th>`;
@@ -1118,8 +1222,14 @@ const app = {
     state.alternatives.forEach((alt, i) => {
       html += `<tr><td class="alt-name">${alt.name}</td>`;
       activeCriteria.forEach((crit, j) => {
-        const helpText = crit.type === 'cost' ? 'Costo: basso=migliore' : 'Beneficio: alto=migliore';
-        html += `<td title="${helpText}"><input type="number" min="1" max="10" step="0.5" value="${state.performanceMatrix[i][j]}" data-row="${i}" data-col="${j}" placeholder="1-10"></td>`;
+        if (crit.isNumeric) {
+          const unitSymbol = crit.numericUnit || '';
+          const placeholder = crit.type === 'cost' ? 'es. ' + (crit.maxValue || '1000') : 'es. ' + (crit.optimalValue || '100');
+          html += `<td><div style="display: flex; align-items: center; gap: 4px; justify-content: center;"><input type="number" step="any" min="0" value="${state.performanceMatrix[i][j]}" data-row="${i}" data-col="${j}" data-is-numeric="true" placeholder="${placeholder}" style="width: 90px;"><span style="font-size: 11px; color: var(--color-text-secondary);">${unitSymbol}</span></div></td>`;
+        } else {
+          const helpText = crit.type === 'cost' ? 'Costo: basso=migliore' : 'Beneficio: alto=migliore';
+          html += `<td title="${helpText}"><input type="number" min="1" max="10" step="0.5" value="${state.performanceMatrix[i][j]}" data-row="${i}" data-col="${j}" data-is-numeric="false" placeholder="1-10"></td>`;
+        }
       });
       html += '</tr>';
     });
@@ -1127,17 +1237,41 @@ const app = {
     html += '</tbody></table>';
     
     html += '<div style="margin-top: 12px; padding: 10px; background: var(--color-bg-1); border-radius: var(--radius-sm); font-size: 12px; color: var(--color-text-secondary);">';
-    html += 'ℹ️ Scala 1-10 dove 1=molto scarso, 5=medio, 10=eccellente. Per i criteri COSTO, il sistema invertià automaticamente la valutazione.';
+    html += 'ℹ️ <strong>Criteri Standard (1-10):</strong> Usa la scala 1-10 dove 1=molto scarso, 5=medio, 10=eccellente.<br>';
+    html += '🔢 <strong>Criteri Numerici:</strong> Inserisci valori reali (es. €5000, 30 giorni). Il sistema li convertirà automaticamente in score basandosi sui valori OTTIMO e MAX che hai definito.<br>';
+    html += '🎯 <strong>Conversione automatica:</strong> Valore=OTTIMO→Score 6 | Valore=MAX→Score 1 (costi) o 10 (benefici) | Valori intermedi interpolati';
     html += '</div>';
     
     container.innerHTML = html;
+  },
+
+  getUnitSymbol(unit) {
+    const symbols = {
+      'currency': '€',
+      'days': 'gg',
+      'hours': 'ore',
+      'time': 'min',
+      'percentage': '%',
+      'saving': '€',
+      'generic': ''
+    };
+    return symbols[unit] || unit || '';
   },
 
   collectPerformanceMatrix() {
     document.querySelectorAll('.matrix-table input').forEach(input => {
       const row = parseInt(input.dataset.row);
       const col = parseInt(input.dataset.col);
-      state.performanceMatrix[row][col] = parseFloat(input.value) || 5;
+      const isNumeric = input.dataset.isNumeric === 'true';
+      const value = parseFloat(input.value);
+      
+      if (isNumeric) {
+        // For numeric criteria, store raw value (will be converted before calculation)
+        state.performanceMatrix[row][col] = isNaN(value) ? 0 : value;
+      } else {
+        // For standard criteria, store 1-10 score
+        state.performanceMatrix[row][col] = isNaN(value) ? 5 : value;
+      }
     });
   },
 
@@ -1192,10 +1326,15 @@ const app = {
       
       console.log("✓ Validation passed");
       
-      // STEP 1: NORMALIZE WITH COST INVERSION (V8.4 FIX)
-      console.log("Step 2: Normalizing matrix with cost inversion...");
+      // STEP 1: CONVERT NUMERIC CRITERIA TO SCORES
+      console.log("Step 2: Converting numeric criteria to scores...");
+      const preparedMatrix = this.convertNumericCriteriaToScores(state.performanceMatrix, enabledCriteria);
+      console.log("✓ Numeric criteria converted to 1-10 scores");
       
-      const normalized = this.normalizeMatrix(state.performanceMatrix, enabledCriteria);
+      // STEP 2: NORMALIZE WITH COST INVERSION
+      console.log("Step 3: Normalizing matrix with cost inversion...");
+      
+      const normalized = this.normalizeMatrix(preparedMatrix, enabledCriteria);
       
       console.log("✓ Matrix normalized (cost criteria inverted correctly)");
       
@@ -1550,6 +1689,99 @@ const app = {
       normalized
     };
   },
+
+  // Convert numeric criteria to 1-10 scores using optimal/max values
+  convertNumericCriteriaToScores(matrix, criteria) {
+    const convertedMatrix = [];
+    
+    for (let i = 0; i < matrix.length; i++) {
+      convertedMatrix[i] = [];
+      
+      for (let j = 0; j < criteria.length; j++) {
+        const crit = criteria[j];
+        const rawValue = parseFloat(matrix[i][j]);
+        
+        if (crit.isNumeric && crit.optimalValue != null && crit.maxValue != null) {
+          // Convert using optimal/max formula
+          const score = this.convertNumericToScore(rawValue, crit);
+          convertedMatrix[i][j] = score;
+        } else {
+          // Standard score (already 1-10)
+          convertedMatrix[i][j] = isNaN(rawValue) ? 5 : rawValue;
+        }
+      }
+    }
+    
+    return convertedMatrix;
+  },
+
+  // Convert a numeric value to 1-10 score based on optimal and max values
+  convertNumericToScore(value, criterion) {
+    const optimal = parseFloat(criterion.optimalValue);
+    const max = parseFloat(criterion.maxValue);
+    const numericValue = parseFloat(value);
+    
+    if (isNaN(numericValue) || isNaN(optimal) || isNaN(max)) {
+      return 5; // Default middle value
+    }
+    
+    // Handle invalid configurations
+    if (optimal <= 0 || max <= 0) return 5;
+    
+    // For COST criteria (lower is better)
+    if (criterion.type === 'cost') {
+      // Value at optimal = score 6
+      if (Math.abs(numericValue - optimal) < 0.01) return 6;
+      
+      // Value = 0 or very low (free) = score 10
+      if (numericValue <= optimal * 0.1) return 10;
+      
+      // Value at max or higher = score 1
+      if (numericValue >= max) return 1;
+      
+      // Between optimal and max: interpolate from 6 to 1
+      if (numericValue > optimal && numericValue < max) {
+        const proportion = (numericValue - optimal) / (max - optimal);
+        return Math.max(1, 6 - (proportion * 5)); // 6 to 1 range
+      }
+      
+      // Below optimal: interpolate from 10 to 6
+      if (numericValue < optimal) {
+        const proportion = numericValue / optimal;
+        return Math.min(10, 6 + (1 - proportion) * 4); // 6 to 10 range
+      }
+      
+      return 6;
+    }
+    
+    // For BENEFIT criteria (higher is better)
+    else {
+      // Value at optimal = score 6
+      if (Math.abs(numericValue - optimal) < 0.01) return 6;
+      
+      // Value at max or higher = score 10
+      if (numericValue >= max) return 10;
+      
+      // Value = 0 or very low = score 1
+      if (numericValue <= optimal * 0.1) return 1;
+      
+      // Between optimal and max: interpolate from 6 to 10
+      if (numericValue > optimal && numericValue < max) {
+        const proportion = (numericValue - optimal) / (max - optimal);
+        return Math.min(10, 6 + (proportion * 4)); // 6 to 10 range
+      }
+      
+      // Below optimal: interpolate from 1 to 6
+      if (numericValue < optimal) {
+        const proportion = numericValue / optimal;
+        return Math.max(1, 1 + (proportion * 5)); // 1 to 6 range
+      }
+      
+      return 6;
+    }
+  },
+
+
 
   // VERSION 8.4: CORRECTED NORMALIZATION WITH COST INVERSION
   normalizeMatrix(matrix, criteria) {
@@ -2733,8 +2965,9 @@ const app = {
       html += `<p>"${top.alternative}" supera "${second.alternative}" di ${scoreDiff.toFixed(2)} punti. Questa differenza è ${scoreDiff > 10 ? 'significativa' : 'moderata'}, indicando ${scoreDiff > 10 ? 'una chiara preferenza' : 'che entrambe le opzioni meritano considerazione'}.</p>`;
     }
     
-    html += '<h4>Metodologia V15.1 con 5 Algoritmi MCDM</h4>';
-    html += '<p><strong>✨ Novità V15.1:</strong> <strong>BUG FIX CRITICO</strong> - Score Finale ora mostra il valore ensemble REALE (non più normalizzato al 100%). Esempio: se l\'ensemble è 80.38, viene mostrato 80.38 (non 100.0).</p>';
+    html += '<h4>Metodologia V17 con 5 Algoritmi MCDM e Criteri Numerici</h4>';
+    html += '<p><strong>✨ Novità V17:</strong> <strong>CRITERI NUMERICI</strong> - Puoi ora inserire valori reali (€, giorni, ore) invece di score 1-10. Il sistema converte automaticamente usando i tuoi valori OTTIMO e MAX.</p>';
+    html += '<p><strong>🔢 Come funziona:</strong> Per criteri numerici, definisci un valore OTTIMO (score=6) e MAX (score=1 per costi, 10 per benefici). I valori inseriti vengono interpolati proporzionalmente.</p>';
     html += '<p><strong>✨ V15+:</strong> <strong>15 famiglie di problema</strong> con criteri <strong>famiglia-specifici</strong> ottimizzati (incluso 🚗 Acquisto Nuova Vettura). Nessun criterio universale generico.</p>';
     html += '<p>Questa analisi combina 5 metodi MCDM differenti con inversione corretta dei costi:';
     html += '<ul>';
@@ -2744,10 +2977,11 @@ const app = {
     html += '<li><strong>AHP</strong> (20%): Analytic Hierarchy Process - media geometrica</li>';
     html += '<li><strong>BDT</strong> (20%): Benefit-Cost Decision Tree - valutazione aggregata</li>';
     html += '</ul>';
-    html += '<strong>✅ Caratteristiche V15.1:</strong>';
+    html += '<strong>✅ Caratteristiche V17:</strong>';
     html += '<ul style="font-size: 12px; color: var(--color-text-secondary);">';
-    html += '<li>🐛 V15.1 FIX: Score Finale = valore ensemble REALE (media dei 5 algoritmi)</li>';
-    html += '<li>🐛 V15.1 FIX: Rimossa ri-normalizzazione che forzava il top al 100%</li>';
+    html += '<li>🔢 V17 NEW: Criteri numerici con conversione automatica (valori reali → score 1-10)</li>';
+    html += '<li>🎯 V17 NEW: Definisci OTTIMO e MAX per interpolazione intelligente</li>';
+    html += '<li>✅ V17: Validazione diversa per criteri numerici (solo >0) vs standard (1-10)</li>';
     html += '<li>✓ 15 famiglie di problema (incluso 🚗 Acquisto Nuova Vettura)</li>';
     html += '<li>✓ Solo criteri famiglia-specifici (es. ${state.selectedFamily ? state.selectedFamily.nome : "famiglia selezionata"})</li>';
     html += '<li>✓ Criteri COSTO: invertiti (10-valore) per normalizzazione corretta</li>';
