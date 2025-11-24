@@ -12,7 +12,6 @@ const state = {
   criteria: [],
   customCriteria: [],
   performanceMatrix: [],
-  performanceMatrixRaw: [],
   preferences: {
     riskTolerance: 5,
     confidenceLevel: 'Medium',
@@ -450,7 +449,6 @@ const app = {
     state.criteria = [];
     state.customCriteria = [];
     state.performanceMatrix = [];
-    state.performanceMatrixRaw = [];
     state.preferences = { riskTolerance: 5, confidenceLevel: 'Medium', constraints: '' };
     state.results = null;
     state.isCalculating = false;
@@ -487,22 +485,13 @@ const app = {
     // V15+: Initialize performance matrix with mid values (only family-specific criteria)
     const activeCriteria = state.criteria.filter(c => c.isIncluded);
     state.performanceMatrix = state.alternatives.map(() => activeCriteria.map(() => 5));
-    state.performanceMatrixRaw = state.alternatives.map(() => activeCriteria.map(() => 5));
 
-    // Populate Step 1 UI (if fields exist)
-    const titleInput = document.getElementById('problem-title');
-    if (titleInput) titleInput.value = state.problem.title;
-
-    const timeInput = document.getElementById('time-horizon');
-    if (timeInput) timeInput.value = state.problem.timeHorizon;
-
-    const budgetInput = document.getElementById('budget-cap');
-    if (budgetInput) budgetInput.value = state.problem.budgetCap;
-
-    const importanceSlider = document.getElementById('importance-level');
-    const importanceValue = document.getElementById('importance-value');
-    if (importanceSlider) importanceSlider.value = state.problem.importanceLevel;
-    if (importanceValue) importanceValue.textContent = state.problem.importanceLevel;
+    // Populate Step 1 UI
+    document.getElementById('problem-title').value = state.problem.title;
+    document.getElementById('time-horizon').value = state.problem.timeHorizon;
+    document.getElementById('budget-cap').value = state.problem.budgetCap;
+    document.getElementById('importance-level').value = state.problem.importanceLevel;
+    document.getElementById('importance-value').textContent = state.problem.importanceLevel;
 
     this.updateFamilyBadges();
     this.renderAlternatives();
@@ -513,23 +502,19 @@ const app = {
   // Step Navigation
   nextStep(currentStep) {
     if (currentStep === 1) {
-      // Step 1: solo il titolo è obbligatorio, gli altri parametri diventano opzionali
+      // Validate step 1
       const title = document.getElementById('problem-title').value.trim();
-      if (!title) {
-        alert('Per favore inserisci un titolo per il problema');
+      const timeHorizon = parseFloat(document.getElementById('time-horizon').value) || 0;
+      
+      if (!title || timeHorizon <= 0) {
+        alert('Per favore compila tutti i campi obbligatori');
         return;
       }
 
-      const timeHorizonInput = document.getElementById('time-horizon');
-      const budgetInput = document.getElementById('budget-cap');
-
-      const timeHorizon = timeHorizonInput ? (parseFloat(timeHorizonInput.value) || 0) : 0;
-      const budgetCap = budgetInput ? (parseFloat(budgetInput.value) || 0) : 0;
-
       state.problem.title = title;
       state.problem.timeHorizon = timeHorizon;
-      state.problem.budgetCap = budgetCap;
-      state.problem.importanceLevel = parseInt(document.getElementById('importance-level').value) || 5;
+      state.problem.budgetCap = parseFloat(document.getElementById('budget-cap').value) || 0;
+      state.problem.importanceLevel = parseInt(document.getElementById('importance-level').value);
 
       this.updateFamilyBadges();
       this.renderAlternatives();
@@ -600,7 +585,7 @@ const app = {
       this.renderAlternatives();
       this.showScreen('step2-screen');
     } else if (currentStep === 4) {
-      this.renderCriteriaEnhanced();
+      this.renderCriteria();
       this.showScreen('step3-screen');
     } else if (currentStep === 5) {
       this.renderPerformanceMatrix();
@@ -767,10 +752,17 @@ const app = {
         const lockIcon = crit.locked ? '🔒' : '🔓';
         const lockClass = crit.locked ? 'locked' : '';
         
+        const inputTypeLabel = crit.isNumeric ? '🔢 Numerico' : '📊 Score';
+        const numericInfo = crit.isNumeric ? `<div style="font-size: 11px; color: #666; margin-top: 5px;">Range: ${crit.minValue} - ${crit.optimalValue} - ${crit.maxValue}</div>` : '';
+        
         customHtml += `
           <div class="crit-item-enhanced" style="background: var(--color-bg-5);">
             <input type="checkbox" class="crit-toggle" ${crit.isIncluded ? 'checked' : ''} data-crit-id="${crit.id}" onchange="app.toggleCriterion('${crit.id}')">
-            <span class="crit-name-display">✏️ ${crit.name}</span>
+            <div>
+              <span class="crit-name-display">✏️ ${crit.name}</span>
+              <span style="font-size: 10px; color: #999; margin-left: 8px;">(${inputTypeLabel})</span>
+              ${numericInfo}
+            </div>
             <span class="crit-type-badge ${typeClass}">${typeIcon} ${crit.type === 'benefit' ? 'Beneficio' : 'Costo'}</span>
             <input type="number" class="crit-weight-input ${lockClass}" value="${crit.weight}" min="0" max="100" step="0.5" data-crit-id="${crit.id}" oninput="app.onWeightEdit('${crit.id}')" ${!crit.isIncluded ? 'disabled' : ''}>
             <button class="btn-lock" onclick="app.toggleLock('${crit.id}')" ${!crit.isIncluded ? 'disabled' : ''}>${lockIcon}</button>
@@ -793,148 +785,150 @@ const app = {
   },
 
   showAddCustomCriterionModal() {
-    const existingModal = document.getElementById('custom-criterion-modal');
-    if (existingModal) existingModal.remove();
-
     const modal = document.createElement('div');
     modal.id = 'custom-criterion-modal';
-    modal.className = 'modal-overlay';
+    modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;';
+    
     modal.innerHTML = `
-      <div class="modal">
-        <div class="modal-header">
-          <h3>➕ Aggiungi Criterio Personalizzato</h3>
-          <button class="modal-close" onclick="app.closeCustomCriterionModal()">×</button>
+      <div style="background: var(--color-surface); padding: 32px; border-radius: var(--radius-lg); max-width: 500px; width: 90%;">
+        <h3 style="margin-bottom: 24px;">Aggiungi Criterio Personalizzato</h3>
+        
+        <div class="form-group">
+          <label class="form-label">Nome Criterio *</label>
+          <input type="text" id="custom-crit-name" class="form-control" placeholder="es. Costo Implementazione, Tempo Risparmiato..." maxlength="100">
+          <small style="font-size: 11px; color: var(--color-text-secondary);">5-100 caratteri, deve essere univoco</small>
         </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label class="form-label" for="custom-crit-name">Nome del Criterio *</label>
-            <input type="text" id="custom-crit-name" class="form-control" placeholder="Es. Costi operativi, Saving annuo, Tempo ciclo" maxlength="100">
-            <small style="font-size: 11px; color: var(--color-text-secondary);">5-100 caratteri, deve essere univoco</small>
+        
+        <div class="form-group">
+          <label class="form-label">Tipo *</label>
+          <div style="display: flex; gap: 16px;">
+            <label class="checkbox-label" style="flex: 1; padding: 12px; background: var(--color-bg-3); border-radius: var(--radius-base); border: 2px solid transparent;" onclick="document.getElementById('custom-type-benefit').checked = true; this.parentElement.querySelectorAll('label').forEach(l => l.style.borderColor = 'transparent'); this.style.borderColor = 'var(--color-primary)';">
+              <input type="radio" name="custom-type" id="custom-type-benefit" value="benefit" checked>
+              <span>↑ Beneficio<br><small style="font-size: 10px;">Più alto = migliore</small></span>
+            </label>
+            <label class="checkbox-label" style="flex: 1; padding: 12px; background: var(--color-bg-4); border-radius: var(--radius-base); border: 2px solid transparent;" onclick="document.getElementById('custom-type-cost').checked = true; this.parentElement.querySelectorAll('label').forEach(l => l.style.borderColor = 'transparent'); this.style.borderColor = 'var(--color-primary)';">
+              <input type="radio" name="custom-type" id="custom-type-cost" value="cost">
+              <span>↓ Costo<br><small style="font-size: 10px;">Più alto = peggiore</small></span>
+            </label>
           </div>
-
-          <div class="form-group">
-            <label class="form-label" for="custom-crit-type">Tipo *</label>
-            <select id="custom-crit-type" class="form-control">
-              <option value="benefit">Beneficio (più alto = meglio)</option>
-              <option value="cost">Costo (più basso = meglio)</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="custom-crit-weight">Peso (%) *</label>
-            <input type="number" id="custom-crit-weight" class="form-control" min="1" max="30" value="5">
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="custom-crit-unit">Unità di Misura (opzionale)</label>
-            <input type="text" id="custom-crit-unit" class="form-control" placeholder="Es. €/anno, ore/ciclo, N° operatori" maxlength="20">
-          </div>
-
-          <hr style="margin: 12px 0; border: none; border-top: 1px solid var(--color-border);">
-
-          <div class="form-group">
-            <label class="form-label" for="custom-crit-scale">Tipo di valutazione</label>
-            <select id="custom-crit-scale" class="form-control">
-              <option value="score" selected>Score 1-10 (valutazione qualitativa)</option>
-              <option value="numeric">Valore numerico (costi, saving, tempi…)</option>
-            </select>
-          </div>
-
-          <div id="custom-crit-numeric-config" style="display: none;">
-            <div class="form-group">
-              <label class="form-label" for="custom-crit-optimal">Valore "Ottimo"</label>
-              <input type="number" id="custom-crit-optimal" class="form-control" min="0" step="0.01" placeholder="Es. costo target o saving minimo desiderato">
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="custom-crit-max">Valore "Max" (limite)</label>
-              <input type="number" id="custom-crit-max" class="form-control" min="0" step="0.01" placeholder="Es. costo massimo accettabile o saving massimo atteso">
-            </div>
-            <p style="font-size: 11px; color: var(--color-text-secondary); margin-top: -4px;">
-              Criteri di costo: 0 ⇒ score 10, Ottimo ⇒ 6, valori prossimi al Max ⇒ 1.<br>
-              Criteri di beneficio: 0 ⇒ 1, Ottimo ⇒ 6, valori prossimi al Max ⇒ 10.
-            </p>
-          </div>
-
-          <p style="font-size: 12px; color: var(--color-text-secondary); margin-top: 8px;">
-            Suggerimento: usa pochi criteri personalizzati (max 5) per non complicare troppo l'analisi.
-          </p>
         </div>
-        <div class="modal-footer">
-          <button class="btn btn--secondary" onclick="app.closeCustomCriterionModal()">Annulla</button>
-          <button class="btn btn--primary" onclick="app.addCustomCriterion()">Aggiungi</button>
+        
+        <div class="form-group">
+          <label class="form-label">Tipo Input *</label>
+          <div style="display: flex; gap: 16px;">
+            <label class="checkbox-label" style="flex: 1; padding: 12px; background: var(--color-bg-1); border-radius: var(--radius-base); border: 2px solid transparent;" onclick="document.getElementById('custom-input-score').checked = true; this.parentElement.querySelectorAll('label').forEach(l => l.style.borderColor = 'transparent'); this.style.borderColor = 'var(--color-primary)'; app.toggleNumericFields(false);">
+              <input type="radio" name="custom-input-type" id="custom-input-score" value="score" checked>
+              <span>📊 Score (1-10)<br><small style="font-size: 10px;">Valutazione qualitativa</small></span>
+            </label>
+            <label class="checkbox-label" style="flex: 1; padding: 12px; background: var(--color-bg-2); border-radius: var(--radius-base); border: 2px solid transparent;" onclick="document.getElementById('custom-input-numeric').checked = true; this.parentElement.querySelectorAll('label').forEach(l => l.style.borderColor = 'transparent'); this.style.borderColor = 'var(--color-primary)'; app.toggleNumericFields(true);">
+              <input type="radio" name="custom-input-type" id="custom-input-numeric" value="numeric">
+              <span>🔢 Numerico<br><small style="font-size: 10px;">Valore reale (€, ore, etc)</small></span>
+            </label>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Peso Iniziale: <span id="custom-weight-value">10</span>%</label>
+          <input type="range" id="custom-crit-weight" class="slider" min="1" max="20" value="10" oninput="document.getElementById('custom-weight-value').textContent = this.value">
+          <small style="font-size: 11px; color: var(--color-text-secondary);">I pesi verranno ribilanciati automaticamente</small>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Unità di Misura (opzionale)</label>
+          <input type="text" id="custom-crit-unit" class="form-control" placeholder="es. €, %, ore, giorni..." maxlength="20">
+        </div>
+        
+        <div id="numeric-fields-container" style="display: none;">
+          <div class="form-group">
+            <label class="form-label">Valore Minimo *</label>
+            <input type="number" id="custom-crit-min" class="form-control" placeholder="es. 0" step="any">
+            <small style="font-size: 11px; color: var(--color-text-secondary);">Valore minimo possibile</small>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Valore Ottimale *</label>
+            <input type="number" id="custom-crit-optimal" class="form-control" placeholder="es. 50000" step="any">
+            <small style="font-size: 11px; color: var(--color-text-secondary);">Valore target/ottimale di riferimento</small>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Valore Massimo *</label>
+            <input type="number" id="custom-crit-max" class="form-control" placeholder="es. 500000" step="any">
+            <small style="font-size: 11px; color: var(--color-text-secondary);">Valore massimo possibile</small>
+          </div>
+          
+          <div style="padding: 12px; background: var(--color-bg-1); border-radius: var(--radius-base); margin-bottom: 16px;">
+            <strong style="font-size: 12px;">💡 Formula Conversione:</strong>
+            <div style="font-size: 11px; color: var(--color-text-secondary); margin-top: 8px;">
+              <strong>Beneficio:</strong> Score = (valore - min) / (max - min) × 100<br>
+              <strong>Costo:</strong> Score = (max - valore) / (max - min) × 100
+            </div>
+          </div>
+        </div>
+        
+        <div style="display: flex; gap: 12px; margin-top: 24px;">
+          <button class="btn btn--primary" onclick="app.addCustomCriterion()" style="flex: 1;">Aggiungi</button>
+          <button class="btn btn--secondary" onclick="app.closeCustomCriterionModal()" style="flex: 1;">Annulla</button>
         </div>
       </div>
     `;
-
+    
     document.body.appendChild(modal);
-
-    // Gestione dinamica della sezione numerica
-    const scaleSelect = document.getElementById('custom-crit-scale');
-    const numericConfig = document.getElementById('custom-crit-numeric-config');
-    if (scaleSelect && numericConfig) {
-      scaleSelect.addEventListener('change', () => {
-        numericConfig.style.display = scaleSelect.value === 'numeric' ? 'block' : 'none';
-      });
-    }
-
-    const nameInput = document.getElementById('custom-crit-name');
-    if (nameInput) nameInput.focus();
+    document.getElementById('custom-crit-name').focus();
   },
-,
+
+  toggleNumericFields(show) {
+    const container = document.getElementById('numeric-fields-container');
+    if (container) {
+      container.style.display = show ? 'block' : 'none';
+    }
+  },
 
   addCustomCriterion() {
     const name = document.getElementById('custom-crit-name').value.trim();
-    const type = document.getElementById('custom-crit-type').value;
+    const type = document.querySelector('input[name="custom-type"]:checked').value;
+    const inputType = document.querySelector('input[name="custom-input-type"]:checked').value;
     const weight = parseFloat(document.getElementById('custom-crit-weight').value);
     const unit = document.getElementById('custom-crit-unit').value.trim();
-    const scaleEl = document.getElementById('custom-crit-scale');
-    const scale = scaleEl ? scaleEl.value : 'score';
-    const isNumeric = scale === 'numeric';
-
-    // Validation base
+    
+    // Validation
     if (!name || name.length < 5 || name.length > 100) {
-      alert('Il nome del criterio deve essere tra 5 e 100 caratteri');
+      alert('Il nome deve essere tra 5 e 100 caratteri');
       return;
     }
-
+    
     // Check uniqueness
     const exists = state.criteria.some(c => c.name.toLowerCase() === name.toLowerCase());
     if (exists) {
       alert('Esiste già un criterio con questo nome');
       return;
     }
-
+    
     // Check max custom criteria
     const customCount = state.criteria.filter(c => c.source === 'custom').length;
     if (customCount >= 5) {
       alert('Massimo 5 criteri personalizzati');
       return;
     }
-
-    // Peso
-    if (isNaN(weight) || weight <= 0 || weight > 30) {
-      alert('Inserisci un peso valido tra 1 e 30%');
-      return;
-    }
-
-    let numericOptimal = null;
-    let numericMax = null;
-
-    if (isNumeric) {
-      numericOptimal = parseFloat(document.getElementById('custom-crit-optimal').value);
-      numericMax = parseFloat(document.getElementById('custom-crit-max').value);
-
-      if (isNaN(numericOptimal) || numericOptimal <= 0) {
-        alert('Per i criteri numerici inserisci un valore "Ottimo" positivo.');
+    
+    // Validation for numeric criteria
+    if (inputType === 'numeric') {
+      const minValue = parseFloat(document.getElementById('custom-crit-min').value);
+      const optimalValue = parseFloat(document.getElementById('custom-crit-optimal').value);
+      const maxValue = parseFloat(document.getElementById('custom-crit-max').value);
+      
+      if (isNaN(minValue) || isNaN(optimalValue) || isNaN(maxValue)) {
+        alert('❌ Per criteri numerici devi specificare min, ottimale e max');
         return;
       }
-      if (isNaN(numericMax) || numericMax <= numericOptimal) {
-        alert('Per i criteri numerici il valore "Max" deve essere maggiore di "Ottimo".');
+      
+      if (minValue >= optimalValue || optimalValue >= maxValue) {
+        alert('❌ Valori non validi: deve essere min < ottimale < max');
         return;
       }
     }
-
-    // Crea criterio
+    
+    // Add custom criterion
     const newCrit = {
       id: 'CUSTOM_' + Date.now(),
       name: name,
@@ -945,18 +939,23 @@ const app = {
       isIncluded: true,
       locked: false,
       source: 'custom',
-      description: 'Criterio personalizzato',
-      isNumeric: isNumeric,
-      numericOptimal: isNumeric ? numericOptimal : null,
-      numericMax: isNumeric ? numericMax : null
+      inputType: inputType,
+      isNumeric: (inputType === 'numeric'),
+      description: 'Criterio personalizzato'
     };
-
+    
+    // Add numeric-specific fields
+    if (inputType === 'numeric') {
+      newCrit.minValue = parseFloat(document.getElementById('custom-crit-min').value);
+      newCrit.optimalValue = parseFloat(document.getElementById('custom-crit-optimal').value);
+      newCrit.maxValue = parseFloat(document.getElementById('custom-crit-max').value);
+    }
+    
     state.criteria.push(newCrit);
-
+    
     this.closeCustomCriterionModal();
     this.renderCriteriaEnhanced();
   },
-,
 
   removeCustomCriterion(critId) {
     if (!confirm('Sei sicuro di voler rimuovere questo criterio personalizzato?')) return;
@@ -1164,268 +1163,106 @@ const app = {
     this.updateWeightSumEnhanced();
   },
 
+  // Convert numeric value to score (0-100)
+  convertNumericToScore(value, criterion) {
+    if (!criterion.isNumeric) return value;
+    
+    const { minValue, optimalValue, maxValue, type } = criterion;
+    
+    // Clamp value within range
+    const clampedValue = Math.max(minValue, Math.min(maxValue, value));
+    
+    let score;
+    
+    if (type === 'benefit') {
+      // Benefit: higher value = higher score
+      // Score = (value - min) / (max - min) * 100
+      score = ((clampedValue - minValue) / (maxValue - minValue)) * 100;
+    } else {
+      // Cost: lower value = higher score
+      // Score = (max - value) / (max - min) * 100
+      score = ((maxValue - clampedValue) / (maxValue - minValue)) * 100;
+    }
+    
+    return Math.max(0, Math.min(100, score));
+  },
+
   // Step 4: Performance Matrix
   renderPerformanceMatrix() {
     this.updateFamilyBadges();
     const container = document.getElementById('performance-matrix');
-
+    
+    // Initialize matrix if empty or size changed
     const activeCriteria = state.criteria.filter(c => c.isIncluded);
-    const altCount = state.alternatives.length;
-    const critCount = activeCriteria.length;
-
-    // Inizializza matrice di score se vuota o dimensione cambiata
-    if (!state.performanceMatrix.length ||
-        state.performanceMatrix.length !== altCount ||
-        (state.performanceMatrix[0] && state.performanceMatrix[0].length !== critCount)) {
-      state.performanceMatrix = state.alternatives.map(() =>
-        activeCriteria.map(() => 5)
+    if (state.performanceMatrix.length !== state.alternatives.length || 
+        (state.performanceMatrix[0] && state.performanceMatrix[0].length !== activeCriteria.length)) {
+      state.performanceMatrix = state.alternatives.map(() => 
+        activeCriteria.map((crit) => crit.isNumeric ? (crit.minValue + crit.maxValue) / 2 : 5)
       );
     }
-
-    // Inizializza matrice grezza (valori numerici)
-    if (!state.performanceMatrixRaw || !state.performanceMatrixRaw.length ||
-        state.performanceMatrixRaw.length !== altCount ||
-        (state.performanceMatrixRaw[0] && state.performanceMatrixRaw[0].length !== critCount)) {
-      state.performanceMatrixRaw = state.alternatives.map((_, iAlt) =>
-        activeCriteria.map((crit, jCrit) =>
-          crit.isNumeric === true ? null : (state.performanceMatrix[iAlt][jCrit] ?? 5)
-        )
-      );
-    }
-
+    
     let html = '<div style="margin-bottom: 16px; padding: 12px; background: var(--color-bg-2); border-radius: var(--radius-base); font-size: 13px;">';
     html += '<strong>💡 Legenda:</strong> ';
     html += '<span class="crit-type-badge benefit" style="margin: 0 8px;">↑ Beneficio</span> = valore alto è migliore | ';
     html += '<span class="crit-type-badge cost" style="margin: 0 8px;">↓ Costo</span> = valore basso è migliore';
     html += '</div>';
-
+    
     html += '<table class="matrix-table"><thead><tr><th></th>';
-
+    
     // Header row with criteria and type indicator
     activeCriteria.forEach(crit => {
       const typeIcon = crit.type === 'benefit' ? '↑' : '↓';
       const typeClass = crit.type === 'benefit' ? 'benefit' : 'cost';
-      const numericBadge = crit.isNumeric === true
-        ? '<div style="font-size: 10px; color: var(--color-text-secondary); margin-top: 2px;">🔢 valore numerico</div>'
-        : '';
       html += `<th>
         <span class="crit-type-badge ${typeClass}" style="font-size: 10px; padding: 2px 6px;">${typeIcon}</span><br>
         ${crit.name}<br>
         <span class="criterion-weight">${crit.weight.toFixed(1)}% ${crit.unit ? '(' + crit.unit + ')' : ''}</span>
-        ${numericBadge}
       </th>`;
     });
     html += '</tr></thead><tbody>';
-
+    
     // Data rows
     state.alternatives.forEach((alt, i) => {
       html += `<tr><td class="alt-name">${alt.name}</td>`;
       activeCriteria.forEach((crit, j) => {
-        const isNumeric = crit.isNumeric === true;
-        const helpTextBase = crit.type === 'cost' ? 'Costo: basso = migliore' : 'Beneficio: alto = migliore';
-        const helpText = isNumeric
-          ? `${helpTextBase}. Inserisci il valore numerico (${crit.unit || 'valore'}).`
-          : `${helpTextBase}. Inserisci uno score da 1 a 10.`;
-
-        const value = isNumeric
-          ? (state.performanceMatrixRaw[i][j] != null ? state.performanceMatrixRaw[i][j] : '')
-          : (state.performanceMatrix[i][j] != null ? state.performanceMatrix[i][j] : 5);
-
-        const minAttr = isNumeric ? 'min="0"' : 'min="1" max="10"';
-        const stepAttr = isNumeric ? 'step="0.01"' : 'step="0.5"';
-        const placeholder = isNumeric ? (crit.unit || 'valore') : '1-10';
-
-        html += `<td title="${helpText}"><input type="number" ${minAttr} ${stepAttr} value="${value}" data-row="${i}" data-col="${j}" placeholder="${placeholder}"></td>`;
+        if (crit.isNumeric) {
+          // Numeric input
+          const formulaText = crit.type === 'cost' 
+            ? `Costo: valori bassi = migliori. Formula: (${crit.maxValue}-valore)/(${crit.maxValue}-${crit.minValue})×100`
+            : `Beneficio: valori alti = migliori. Formula: (valore-${crit.minValue})/(${crit.maxValue}-${crit.minValue})×100`;
+          
+          html += `<td title="${formulaText}" style="background: #fff9e6;">
+            <input type="number" step="any" value="${state.performanceMatrix[i][j]}" 
+              data-row="${i}" data-col="${j}" 
+              placeholder="${crit.minValue}-${crit.maxValue}" 
+              style="background: #fffbf0;">
+            <div style="font-size: 9px; color: #666; margin-top: 2px;">Range: ${crit.minValue}-${crit.maxValue}</div>
+          </td>`;
+        } else {
+          // Score input (1-10)
+          const helpText = crit.type === 'cost' ? 'Costo: basso=migliore' : 'Beneficio: alto=migliore';
+          html += `<td title="${helpText}"><input type="number" min="1" max="10" step="0.5" value="${state.performanceMatrix[i][j]}" data-row="${i}" data-col="${j}" placeholder="1-10"></td>`;
+        }
       });
       html += '</tr>';
     });
-
+    
     html += '</tbody></table>';
-
+    
     html += '<div style="margin-top: 12px; padding: 10px; background: var(--color-bg-1); border-radius: var(--radius-sm); font-size: 12px; color: var(--color-text-secondary);">';
-    html += 'ℹ️ Per i criteri standard usa la scala 1-10 (1=molto scarso, 5=medio, 10=eccezionale). ';
-    html += 'Per i criteri numerici inserisci il valore (es. €, ore, saving): il sistema lo convertirà automaticamente in uno score 1-10 in base ai parametri Ottimo/Max e al tipo (costo/beneficio). ';
-    html += 'Per i criteri COSTO, il sistema invertirà automaticamente la valutazione nelle fasi di calcolo.';
+    html += 'ℹ️ Scala 1-10 dove 1=molto scarso, 5=medio, 10=eccellente. Per i criteri COSTO, il sistema invertià automaticamente la valutazione.';
     html += '</div>';
-
+    
     container.innerHTML = html;
   },
 
   collectPerformanceMatrix() {
-    const activeCriteria = state.criteria.filter(c => c.isIncluded);
-    const altCount = state.alternatives.length;
-    const critCount = activeCriteria.length;
-
-    if (!altCount || !critCount) return;
-
-    if (!state.performanceMatrixRaw || !state.performanceMatrixRaw.length ||
-        state.performanceMatrixRaw.length !== altCount ||
-        (state.performanceMatrixRaw[0] && state.performanceMatrixRaw[0].length !== critCount)) {
-      state.performanceMatrixRaw = state.alternatives.map(() =>
-        activeCriteria.map(() => null)
-      );
-    }
-    if (!state.performanceMatrix || !state.performanceMatrix.length ||
-        state.performanceMatrix.length !== altCount ||
-        (state.performanceMatrix[0] && state.performanceMatrix[0].length !== critCount)) {
-      state.performanceMatrix = state.alternatives.map(() =>
-        activeCriteria.map(() => 5)
-      );
-    }
-
     document.querySelectorAll('.matrix-table input').forEach(input => {
-      const row = parseInt(input.dataset.row, 10);
-      const col = parseInt(input.dataset.col, 10);
-      const crit = activeCriteria[col];
-      if (!crit || isNaN(row) || isNaN(col)) return;
-
-      const val = parseFloat(input.value);
-
-      if (crit.isNumeric === true) {
-        state.performanceMatrixRaw[row][col] = isNaN(val) ? null : val;
-      } else {
-        const score = isNaN(val) ? 5 : val;
-        state.performanceMatrix[row][col] = score;
-        state.performanceMatrixRaw[row][col] = score;
-      }
+      const row = parseInt(input.dataset.row);
+      const col = parseInt(input.dataset.col);
+      state.performanceMatrix[row][col] = parseFloat(input.value) || 5;
     });
   },
-
-  // Conversione criteri numerici → score 1-10
-  validateAndTransformPerformanceMatrix() {
-    const activeCriteria = state.criteria.filter(c => c.isIncluded);
-    const altCount = state.alternatives.length;
-    const critCount = activeCriteria.length;
-
-    if (!altCount || !critCount) {
-      alert('Definisci prima alternative e criteri.');
-      return false;
-    }
-
-    // Validazione valori inseriti
-    for (let i = 0; i < altCount; i++) {
-      for (let j = 0; j < critCount; j++) {
-        const crit = activeCriteria[j];
-        const isNumeric = crit.isNumeric === true;
-
-        if (isNumeric) {
-          const raw = state.performanceMatrixRaw[i][j];
-          if (raw === null || raw === undefined || isNaN(raw)) {
-            alert('Per i criteri numerici devi inserire un valore numerico per ogni alternativa.');
-            return false;
-          }
-          if (raw < 0) {
-            alert('I valori per i criteri numerici devono essere positivi.');
-            return false;
-          }
-        } else {
-          const score = state.performanceMatrix[i][j];
-          if (score === null || score === undefined || isNaN(score) || score < 1 || score > 10) {
-            alert('Tutti i punteggi dei criteri standard devono essere compresi tra 1 e 10.');
-            return false;
-          }
-        }
-      }
-    }
-
-    // Conversione criteri numerici in score 1-10
-    this.convertNumericCriteriaToScores();
-    return true;
-  },
-
-  convertNumericCriteriaToScores() {
-    const activeCriteria = state.criteria.filter(c => c.isIncluded);
-    const altCount = state.alternatives.length;
-    const critCount = activeCriteria.length;
-
-    if (!altCount || !critCount) return;
-
-    for (let j = 0; j < critCount; j++) {
-      const crit = activeCriteria[j];
-      if (!crit || crit.isNumeric !== true) continue;
-
-      const values = [];
-      for (let i = 0; i < altCount; i++) {
-        const v = state.performanceMatrixRaw[i][j];
-        if (typeof v === 'number' && !isNaN(v)) {
-          values.push(v);
-        }
-      }
-
-      if (!values.length) {
-        for (let i = 0; i < altCount; i++) {
-          state.performanceMatrix[i][j] = 5;
-        }
-        continue;
-      }
-
-      const minVal = Math.min(...values);
-      const maxValUser = Math.max(...values);
-
-      const numericMax = (typeof crit.numericMax === 'number' && !isNaN(crit.numericMax) && crit.numericMax > 0)
-        ? crit.numericMax
-        : maxValUser;
-
-      const numericOptimal = (typeof crit.numericOptimal === 'number' && !isNaN(crit.numericOptimal) && crit.numericOptimal > 0)
-        ? crit.numericOptimal
-        : (crit.type === 'benefit'
-            ? (minVal + maxValUser) / 2
-            : (minVal > 0 ? minVal : maxValUser / 2));
-
-      const hi = Math.max(numericMax, maxValUser);
-
-      for (let i = 0; i < altCount; i++) {
-        const rawVal = state.performanceMatrixRaw[i][j];
-        let score;
-        if (typeof rawVal !== 'number' || isNaN(rawVal)) {
-          score = 5;
-        } else if (crit.type === 'cost') {
-          score = this.mapNumericCostToScore(rawVal, numericOptimal, hi);
-        } else {
-          score = this.mapNumericBenefitToScore(rawVal, numericOptimal, hi);
-        }
-
-        if (score < 1) score = 1;
-        if (score > 10) score = 10;
-        state.performanceMatrix[i][j] = parseFloat(score.toFixed(3));
-      }
-    }
-  },
-
-  mapNumericCostToScore(value, optimal, hi) {
-    if (value <= 0) return 10;
-
-    if (!hi || hi <= 0 || !optimal || optimal <= 0 || hi <= optimal) {
-      const v = Math.min(value, hi || value || 1);
-      return 10 - 9 * (v / (hi || v || 1));
-    }
-
-    const v = Math.min(value, hi);
-
-    if (v <= optimal) {
-      return 6 + 4 * (optimal - v) / optimal;
-    } else {
-      return 6 - 5 * (v - optimal) / (hi - optimal);
-    }
-  },
-
-  mapNumericBenefitToScore(value, optimal, hi) {
-    if (value <= 0) return 1;
-
-    if (!hi || hi <= 0 || !optimal || optimal <= 0 || hi <= optimal) {
-      const v = Math.min(value, hi || value || 1);
-      return 1 + 9 * (v / (hi || v || 1));
-    }
-
-    const v = Math.min(value, hi);
-
-    if (v >= optimal) {
-      return 6 + 4 * (v - optimal) / (hi - optimal);
-    } else {
-      return 1 + 5 * v / optimal;
-    }
-  },
-,
 
   // Step 5: Calculate Results - VERSION 8.0 CORRECTED ALGORITHMS
   calculateResults() {
@@ -1465,7 +1302,7 @@ const app = {
         return;
       }
       
-      // Check matrix complete
+      // Check matrix complete and validate numeric criteria ranges
       for (let i = 0; i < state.alternatives.length; i++) {
         for (let j = 0; j < enabledCriteria.length; j++) {
           const value = state.performanceMatrix[i] ? state.performanceMatrix[i][j] : null;
@@ -1473,15 +1310,46 @@ const app = {
             alert("❌ Missing value at: " + state.alternatives[i].name + " × " + enabledCriteria[j].name);
             return;
           }
+          
+          // Validate numeric criteria are within range
+          if (enabledCriteria[j].isNumeric) {
+            const numValue = parseFloat(value);
+            const min = enabledCriteria[j].minValue;
+            const max = enabledCriteria[j].maxValue;
+            if (numValue < min || numValue > max) {
+              alert(`❌ Valore fuori range per ${enabledCriteria[j].name}: ${numValue}. Range consentito: ${min}-${max}`);
+              return;
+            }
+          }
         }
       }
       
       console.log("✓ Validation passed");
       
+      // STEP 0: Convert numeric criteria to scores
+      console.log("Step 1.5: Converting numeric criteria to scores...");
+      const convertedMatrix = [];
+      for (let i = 0; i < state.performanceMatrix.length; i++) {
+        convertedMatrix[i] = [];
+        for (let j = 0; j < enabledCriteria.length; j++) {
+          const value = state.performanceMatrix[i][j];
+          if (enabledCriteria[j].isNumeric) {
+            // Convert numeric to score (0-100)
+            const score = this.convertNumericToScore(value, enabledCriteria[j]);
+            // Scale to 1-10 for normalization consistency
+            convertedMatrix[i][j] = (score / 10);
+            console.log(`  Converted ${enabledCriteria[j].name}: ${value} → ${score.toFixed(1)}/100 → ${convertedMatrix[i][j].toFixed(2)}/10`);
+          } else {
+            convertedMatrix[i][j] = value;
+          }
+        }
+      }
+      console.log("✓ Numeric criteria converted");
+      
       // STEP 1: NORMALIZE WITH COST INVERSION (V8.4 FIX)
       console.log("Step 2: Normalizing matrix with cost inversion...");
       
-      const normalized = this.normalizeMatrix(state.performanceMatrix, enabledCriteria);
+      const normalized = this.normalizeMatrix(convertedMatrix, enabledCriteria);
       
       console.log("✓ Matrix normalized (cost criteria inverted correctly)");
       

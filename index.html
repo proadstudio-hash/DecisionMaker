@@ -93,30 +93,36 @@
                     <p>Descrivi la decisione che devi prendere</p>
                 </div>
 
-                
-<div class="card">
-    <div class="card__body">
-        <div class="form-group">
-            <label class="form-label" for="problem-title">Titolo del Problema *</label>
-            <input type="text" id="problem-title" class="form-control" placeholder="es. Scegli un Percorso di Carriera" required>
-        </div>
+                <div class="card">
+                    <div class="card__body">
+                        <div class="form-group">
+                            <label class="form-label" for="problem-title">Titolo del Problema *</label>
+                            <input type="text" id="problem-title" class="form-control" placeholder="es. Scegli un Percorso di Carriera" required>
+                        </div>
 
-        <!-- Orizzonte temporale e Budget resi opzionali nella logica dell'app
-             e rimossi dall'interfaccia utente -->
+                        <div class="form-group">
+                            <label class="form-label" for="time-horizon">Orizzonte Temporale (anni) *</label>
+                            <input type="number" id="time-horizon" class="form-control" min="0" step="0.5" placeholder="es. 3">
+                        </div>
 
-        <div id="context-questions"></div>
+                        <div class="form-group">
+                            <label class="form-label" for="budget-cap">Budget € (cap)</label>
+                            <input type="number" id="budget-cap" class="form-control" min="0" step="100" placeholder="Inserisci un budget massimo se rilevante">
+                        </div>
 
-        <div class="form-group">
-            <label class="form-label" for="importance-level">Livello di Importanza: <span id="importance-value">5</span>/10</label>
-            <input type="range" id="importance-level" class="slider" min="1" max="10" value="5" oninput="document.getElementById('importance-value').textContent = this.value">
-            <div class="slider-labels">
-                <span>Bassa</span>
-                <span>Media</span>
-                <span>Alta</span>
-            </div>
-        </div>
-    </div>
-</div>
+                        <div id="context-questions"></div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="importance-level">Livello di Importanza: <span id="importance-value">5</span>/10</label>
+                            <input type="range" id="importance-level" class="slider" min="1" max="10" value="5" oninput="document.getElementById('importance-value').textContent = this.value">
+                            <div class="slider-labels">
+                                <span>Bassa</span>
+                                <span>Media</span>
+                                <span>Alta</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 <div class="step-navigation">
                     <button class="btn btn--secondary" onclick="app.goToWelcome()">Indietro</button>
@@ -262,11 +268,10 @@
                     <div class="progress-step">6</div>
                 </div>
 
-                
-<div class="step-header">
-    <h2>Step 4: Valuta le Performance</h2>
-    <p>Inserisci per ogni combinazione alternativa-criterio uno score 1-10 oppure, per i criteri numerici, il valore (es. costi, saving, tempi ciclo).</p>
-</div>
+                <div class="step-header">
+                    <h2>Step 4: Valuta le Performance</h2>
+                    <p>Assegna un punteggio da 1 a 10 per ogni combinazione alternativa-criterio</p>
+                </div>
 
                 <div class="card">
                     <div class="card__body">
@@ -280,7 +285,7 @@
                 <div style="margin-top: 30px; padding: 20px; background: var(--color-surface); border-radius: var(--radius-lg); border: 1px solid var(--color-card-border); box-shadow: var(--shadow-sm);">
                     <h3 style="margin: 0 0 15px 0; color: var(--color-text); font-size: var(--font-size-xl);">📋 Scale di Valutazione</h3>
                     <p style="margin: 0 0 15px 0; color: var(--color-text-secondary); font-size: var(--font-size-sm);">
-                        Consulta queste scale quando utilizzi la scala 1-10 per i criteri qualitativi
+                        Consulta queste scale quando inserisci i punteggi da 1 a 10
                     </p>
                     
                     <!-- TABS for switching between BENEFIT and COST -->
